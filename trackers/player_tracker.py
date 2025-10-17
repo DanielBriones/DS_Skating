@@ -5,15 +5,17 @@ Created on Thu Apr  4 12:30:44 2024
 @author: pc
 """
 import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import zipfile
-
 import cv2
 import tensorflow as tf
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+import pandas as pd
+
 
 class PlayerTracker:
     def __init__(self,model_type='metrabs_mob3l_y4t', skeleton = 'smpl+head_30'):
@@ -85,32 +87,29 @@ class PlayerTracker:
         
         return player_dict
 
-
     def draw_bboxes(self, video_frames, player_detections):
         output_video_frames = []
         self.frame_count = 0
+        joints_study_data = []
+
         for frame, player_dict in zip(video_frames, player_detections):
             self.frame_count += 1
             frame_dict = player_dict[self.frame_count]
+
             for track_id, values in frame_dict.items():
                 fig = plt.figure(figsize=(10, 5.2))
                 image_ax = fig.add_subplot(1, 2, 1)
-
                 image = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
                 image_ax.imshow(image)
-
-                # Values
 
                 bbox = values.get('boxes', None)
                 pose2d = values.get('poses2d', None)
                 pose3d = values.get('poses3d', None)
 
-                # Draw Bounding Boxes
                 if bbox is not None:
                     x, y, w, h, c = bbox
                     image_ax.add_patch(Rectangle((x, y), w, h, fill=False))
 
-                # Draw pose detections
                 if pose3d is not None and pose2d is not None:
                     pose_ax = fig.add_subplot(1, 2, 2, projection='3d')
                     pose_ax.view_init(5, -75)
@@ -120,7 +119,6 @@ class PlayerTracker:
 
                     pose3d = pose3d.numpy()
                     pose2d = pose2d.numpy()
-
                     pose3d[..., 1], pose3d[..., 2] = pose3d[..., 2], -pose3d[..., 1]
 
                     for i_start, i_end in self.joint_edges:
@@ -130,14 +128,41 @@ class PlayerTracker:
                     image_ax.scatter(*pose2d.T, s=2)
                     pose_ax.scatter(*pose3d.T, s=2)
 
-            fig.canvas.draw()
+                    num_joints = len(pose2d)
+                    for joint_idx in range(num_joints):
+                        x, y = pose2d[joint_idx]
+                        joints_study_data.append({
+                            "frame": self.frame_count,
+                            "joint": joint_idx,
+                            "x": x,
+                            "y": y,
+                            "track_id": track_id
+                        })
 
-            img_plot = np.array(fig.canvas.renderer.buffer_rgba())
+                fig.canvas.draw()
+                img_plot = np.array(fig.canvas.renderer.buffer_rgba())
+                mat_frame = cv2.cvtColor(img_plot, cv2.COLOR_RGBA2BGR)
+                output_video_frames.append(mat_frame)
+                plt.close(fig)
 
-            mat_frame = cv2.cvtColor(img_plot, cv2.COLOR_RGBA2BGR)
+        df = pd.DataFrame(joints_study_data)
 
-            output_video_frames.append(mat_frame)
+        plt.figure(figsize=(10, 6))
+        for joint_idx in df["joint"].unique():
+            df_joint = df[df["joint"] == joint_idx]
 
-            plt.close()
+            if hasattr(self, "joint_names") and joint_idx < len(self.joint_names):
+                joint_name = self.joint_names[joint_idx]
+            else:
+                joint_name = f"Joint {joint_idx}"
+
+            plt.plot(df_joint["frame"], df_joint["y"], label=joint_name, alpha=0.5)
+
+        plt.title("Movimiento Y de todas las articulaciones")
+        plt.xlabel("Frame")
+        plt.ylabel("Coordenada Y")
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.show()
 
         return output_video_frames

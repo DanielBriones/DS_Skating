@@ -32,7 +32,7 @@ def main():
     output_video_frames = player_tracker.draw_bboxes(video_frames, player_detections)
 
     #Output video
-    save_video_batch(output_video_frames, "output_videos/result_parallelized.avi")
+    save_video_batch(output_video_frames, "output_videos/result_with_joint_names_xCoordinates.avi")
 
 if __name__ == '__main__':
     main()
