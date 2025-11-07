@@ -15,6 +15,7 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+import mediapipe as mp
 import pandas as pd
 
 
@@ -88,6 +89,7 @@ class PlayerTracker:
         
         return player_dict
 
+
 #Versión que guarda cada frame en una carpeta para poder revisarlos 1 por 1
     def draw_bboxes(self, video_frames, player_detections):
         output_video_frames = []
@@ -150,6 +152,7 @@ class PlayerTracker:
         print(f"Se han guardado {self.frame_count} frames en '{output_dir}'")
 
         return output_video_frames
+
 
 #Versión que guarda los valores que salen de la bbox en un .csv
 """
